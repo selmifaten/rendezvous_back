@@ -7,14 +7,23 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 public class FirebaseConfig {
+    @SuppressWarnings("deprecation")
     public static void initFirebase() throws IOException {
+        System.out.println("Initializing Firebase...");
         FileInputStream serviceAccount = new FileInputStream("src/main/resources/google-services.json");
 
-        FirebaseOptions options = FirebaseOptions.builder()
+        FirebaseOptions options = new FirebaseOptions.Builder()
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                .setDatabaseUrl("https://appointments-1127c.firebaseio.com")
                 .build();
 
         FirebaseApp.initializeApp(options);
+
+        System.out.println("Firebase initialized successfully.");
     }
+
 }
+
+// FirebaseOptions options = FirebaseOptions.builder()
+// .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+// .setDatabaseUrl("https://appointments-1127c.firebaseio.com")
+// .build();
