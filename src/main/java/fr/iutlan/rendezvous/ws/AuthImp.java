@@ -1,7 +1,10 @@
 package fr.iutlan.rendezvous.ws;
 
+import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.QueryDocumentSnapshot;
+import com.google.cloud.firestore.QuerySnapshot;
 import com.google.firebase.cloud.FirestoreClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
@@ -97,6 +100,95 @@ public class AuthImp implements Auth {
             return "Doctor registration successful! Welcome Dr. " + name;
         } catch (FirebaseAuthException e) {
             return "Registration failed: " + e.getMessage();
+        }
+    }
+
+    @WebMethod
+    public String changeRoleToPatient(@XmlElement(name = "keyCode") String keyCode,
+            @XmlElement(name = "email") String email) {
+        System.out.println("changeRoleToPatient() called. Parameters: keyCode=" + keyCode + ", email=" + email);
+
+        String secretKey = "yourSecretKey123";
+        if (keyCode == null || !keyCode.equals(secretKey)) {
+            return "Access denied: Invalid key code.";
+        }
+
+        if (email == null || email.isEmpty()) {
+            return "Error: Email cannot be empty.";
+        }
+
+        try {
+            FirebaseAuth auth = FirebaseAuth.getInstance();
+
+            UserRecord userRecord = auth.getUserByEmail(email);
+            if (userRecord == null) {
+                return "Error: User with email " + email + " does not exist.";
+            }
+
+            String userId = userRecord.getUid();
+            CollectionReference users = db.collection("User");
+
+            String currentRole = users.document(userId).get().get().getString("role");
+            if (!"doctor".equals(currentRole)) {
+                return "Error: User with email " + email + " is not a doctor.";
+            }
+
+            users.document(userId).update("role", "patient");
+
+            db.collection("Doctor").document(userId).delete();
+
+            db.collection("Availability")
+                    .whereEqualTo("doctorID", userId)
+                    .get()
+                    .get()
+                    .getDocuments()
+                    .forEach(document -> document.getReference().delete());
+
+            db.collection("Appointment")
+                    .whereEqualTo("doctorID", userId)
+                    .get()
+                    .get()
+                    .getDocuments()
+                    .forEach(document -> document.getReference().delete());
+
+            return "Role updated successfully! User " + email + " is now a patient.";
+        } catch (FirebaseAuthException e) {
+            return "Error retrieving user: " + e.getMessage();
+        } catch (Exception e) {
+            return "Error updating role: " + e.getMessage();
+        }
+    }
+
+    @WebMethod
+    public String getAllDoctors(@XmlElement(name = "keyCode") String keyCode) {
+        System.out.println("getAllDoctors() called. Parameters: keyCode=" + keyCode);
+
+        String secretKey = "yourSecretKey123";
+        if (keyCode == null || !keyCode.equals(secretKey)) {
+            throw new SecurityException("Access denied: Invalid key code.");
+        }
+
+        try {
+            CollectionReference users = db.collection("User");
+
+            ApiFuture<QuerySnapshot> doctorList = users.whereEqualTo("role", "doctor")
+                    .get();
+            String data = "Doctors:";
+
+            for (QueryDocumentSnapshot document : doctorList.get()) {
+                String userID = document.getId();
+                String name = document.getString("name");
+                String email = document.getString("email");
+                String profession = db.collection("Doctor").document(userID).get().get().getString("profession");
+                data = data.concat(
+                        "\n-Id: " + userID + ", Name:" + name + ", Email:" + email + ", Profession:" + profession
+                                + ";\n");
+            }
+            System.out.println(data);
+            return data;
+        } catch (Exception e) {
+            System.err.println("Error retrieving doctors: " + e.getMessage());
+            throw new RuntimeException("Error retrieving doctors: " + e.getMessage());
         }
     }
 

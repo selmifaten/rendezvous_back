@@ -22,8 +22,3 @@ public class FirebaseConfig {
     }
 
 }
-
-// FirebaseOptions options = FirebaseOptions.builder()
-// .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-// .setDatabaseUrl("https://appointments-1127c.firebaseio.com")
-// .build();
